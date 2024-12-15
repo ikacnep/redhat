@@ -401,11 +401,6 @@ void PrintfT(unsigned long level, const string& format, ...)
     vsnprintf(line, linesize, format.c_str(), list);
     va_end(list);
 
-    time_t t;
-    struct tm *tm;
-    time(&t);
-    tm = localtime(&t);
-
     printf(line);
 
     FILE* f_log = fopen(Config::LogFile.c_str(), "a");

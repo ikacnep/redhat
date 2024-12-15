@@ -3,7 +3,7 @@
 #include <fstream>
 #include "character.hpp"
 
-void Character::LoadFromBuffer(void* buf, unsigned long len)
+void Character::LoadFromBuffer(char* buf, unsigned long len)
 {
     unsigned long sig = *(unsigned long*)(buf);
     if(sig != 0x04507989)
@@ -18,7 +18,7 @@ void Character::LoadFromBuffer(void* buf, unsigned long len)
         unsigned long ssig = *(unsigned long*)(p+buf); p+=4;
         unsigned long ssiz = *(unsigned long*)(p+buf); p+=4;
         unsigned long skey = *(unsigned long*)(p+buf) >> 0x10; p+=4; // особенности использования
-        unsigned long scrc = *(unsigned long*)(p+buf); p+=4;
+        p+=4;
 
         switch(ssig)
         {
@@ -140,7 +140,7 @@ void Character::LoadFromFile(std::string filename)
     f_temp.seekg(0, std::ios::end);
     filelen = f_temp.tellg();
     f_temp.seekg(0, std::ios::beg);
-    unsigned char* buf = (unsigned char*)malloc(filelen);
+    char* buf = (char*)malloc(filelen);
     f_temp.read((char*)buf, filelen);
     f_temp.close();
     this->LoadFromBuffer(buf, filelen);
@@ -153,13 +153,12 @@ void Character::Error(std::string err)
     this->Bad = true;
 }
 
-void Character::DecryptSection(void* buf, unsigned long len, unsigned long key)
+void Character::DecryptSection(char* buf, unsigned long len, unsigned long key)
 {
     unsigned long k = key | (key << 0x10);
-    unsigned char* nbuf = reinterpret_cast<unsigned char*>(buf);
-    for(int i = 0; i < len; i++)
+    for (unsigned long i = 0; i < len; i++)
     {
-        nbuf[i] = ((unsigned char)(k >> 0x10) ^ nbuf[i]) & 0xFF;
+        buf[i] = ((unsigned char)(k >> 0x10) ^ buf[i]) & 0xFF;
         k = (k << 1) & 0xFFFFFFFF;
 		if((i & 0x0F) == 0x0F) k |= key;
     }
