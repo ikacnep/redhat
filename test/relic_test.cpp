@@ -132,4 +132,69 @@ TEST(EmbossSigil) {
     }
 }
 
+TEST(ClaimedRelics) {
+    // Random character doesn't claim anything.
+    CCharacter chr;
+    chr.Nick = "nobody";
+    chr.Sex = sex::warrior;
+    chr.Reaction = 19;
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, ascension_crown.Id));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, 18515)); // First circle reward.
+
+    // Ascended character claims the ascension crown.
+    CHECK_EQUAL(2, ClaimedRelics(chr, 2, ascension_crown.Id));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 2, ascension_staff.Id));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 2, 18515));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 2, 17473));
+
+    // Second circle character before nightmare claims first circle reward, but not second circle reward.
+    chr.Nick = "2circle";
+    CHECK_EQUAL(1, ClaimedRelics(chr, 0, 18515));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, 19550));
+
+    // Second circle character at nightmare claims both first and second circle rewards.
+    chr.Reaction = 50;
+    chr.Mind = 50;
+    chr.Spirit = 50;
+    CHECK_EQUAL(1, ClaimedRelics(chr, 0, 18515));
+    CHECK_EQUAL(1, ClaimedRelics(chr, 0, 19550));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, 19034));
+
+    // Seventh circle character before nightmare: claims up to sixth circle reward, but not seventh circle reward.
+    chr.Nick = "7circle";
+    chr.Reaction = 49;
+    CHECK_EQUAL(1, ClaimedRelics(chr, 0, 17730));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, 17473));
+
+    // Now all the same for a witch.
+    chr.Sex = sex::witch;
+    chr.Nick = "witch";
+    chr.Reaction = 19;
+    
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, ascension_staff.Id));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, 18515));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, 55150));
+
+    CHECK_EQUAL(2, ClaimedRelics(chr, 2, ascension_staff.Id));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 2, ascension_crown.Id));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 2, 55150));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 2, 54885));
+
+    chr.Nick = "2circle";
+    CHECK_EQUAL(1, ClaimedRelics(chr, 0, 55150));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, 56443));
+
+    chr.Reaction = 50;
+    chr.Mind = 50;
+    chr.Spirit = 50;
+    CHECK_EQUAL(1, ClaimedRelics(chr, 0, 55150));
+    CHECK_EQUAL(1, ClaimedRelics(chr, 0, 56443));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, 55927));
+
+    chr.Nick = "7circle";
+    chr.Reaction = 49;
+    CHECK_EQUAL(1, ClaimedRelics(chr, 0, 54369));
+    CHECK_EQUAL(0, ClaimedRelics(chr, 0, 54885));
+}
+
 }
