@@ -164,7 +164,7 @@ int ClaimedRelics(const CCharacter& chr, int ascended, uint16_t item_id) {
     const auto& awards = circle::AllAwards();
     for (int i = 1; i <= claimed_circle; i++) {
         auto it = awards.find(chr.Sex);
-        if (it != awards.end() && it->second[i].Id == item_id) {
+        if (it != awards.end() && it->second[i-1].Id == item_id) {
             return 1;
         }
     }
@@ -299,39 +299,44 @@ bool MigrateRelics(bool dry_run) {
         }
         uint32_t sigil = id_to_sigil[chr.ID];
 
-        int has_relics = 0;
+        std::string original_dress = Login_SerializeItems(chr.Dress);
+        std::string original_bag = Login_SerializeItems(chr.Bag);
+
+        bool updated = false;
         for (auto& item : chr.Dress.Items) {
             if (IsRelic(item)) {
                 if (id_to_available_relics[chr.ID][item.Id] > 0) {
-                    has_relics++;
                     id_to_available_relics[chr.ID][item.Id]--;
                     Printf(LOG_Info, "[relic] Embossing relic (item ID %u) in the dress of character %d with sigil %u\n", item.Id, chr.ID, sigil);
                     EmbossSigil(item, sigil);
+                    updated = true;
                 } else {
                     Printf(LOG_Warning, "[relic] Got an unclaimed relic (item ID %u) in the dress of character %d\n", item.Id, chr.ID);
                 }
             } else if (rewrite_old_ids.count(item.Id)) {
                 Printf(LOG_Warning, "[relic] Found a non-relic item with a relic ID in the dress of character %d. Rewriting item ID %u -> %u.\n", chr.ID, item.Id, rewrite_old_ids[item.Id]);
                 item.Id = rewrite_old_ids[item.Id];
+                updated = true;
             }
         }
         for (auto& item : chr.Bag.Items) {
             if (IsRelic(item)) {
                 if (id_to_available_relics[chr.ID][item.Id] > 0) {
-                    has_relics++;
                     id_to_available_relics[chr.ID][item.Id]--;
                     Printf(LOG_Info, "[relic] Embossing relic (item ID %u) in the bag of character %d with sigil %u\n", item.Id, chr.ID, sigil);
                     EmbossSigil(item, sigil);
+                    updated = true;
                 } else {
                     Printf(LOG_Warning, "[relic] Got an unclaimed relic (item ID %u) in the bag of character %d\n", item.Id, chr.ID);
                 }
             } else if (rewrite_old_ids.count(item.Id)) {
                 Printf(LOG_Warning, "[relic] Found a non-relic item with a relic ID in the bag of character %d. Rewriting item ID %u -> %u.\n", chr.ID, item.Id, rewrite_old_ids[item.Id]);
                 item.Id = rewrite_old_ids[item.Id];
+                updated = true;
             }
         }
 
-        if (!has_relics) {
+        if (!updated) {
             continue;
         }
 
@@ -340,7 +345,10 @@ bool MigrateRelics(bool dry_run) {
             continue;
         }
 
-        SimpleSQL update_query(Format("UPDATE characters SET dress = '%s', bag = '%s' WHERE id = %d;", SQL_Escape(Login_SerializeItems(chr.Dress)).c_str(), SQL_Escape(Login_SerializeItems(chr.Bag)).c_str(), chr.ID));
+        std::string new_dress = Login_SerializeItems(chr.Dress);
+        std::string new_bag = Login_SerializeItems(chr.Bag);
+        Printf(LOG_Info, "[relic] Saving bag&dress for character %d: dress '%s' -> '%s'; bag '%s' -> '%s'\n", chr.ID, original_dress.c_str(), new_dress.c_str(), original_bag.c_str(), new_bag.c_str());
+        SimpleSQL update_query(Format("UPDATE characters SET dress = '%s', bag = '%s' WHERE id = %d;", SQL_Escape(new_dress).c_str(), SQL_Escape(new_bag).c_str(), chr.ID));
         if (!update_query) {
             Printf(LOG_Error, "[relic] Failed to update character %d with embossed relics: %s\n", chr.ID, SQL_Error().c_str());
             continue;
@@ -376,7 +384,8 @@ bool MigrateRelics(bool dry_run) {
         int login_id = SQL_FetchInt(row, shelf.result, "login_id");
         int server_id = SQL_FetchInt(row, shelf.result, "server_id");
         int cabinet = SQL_FetchInt(row, shelf.result, "cabinet");
-        auto items = Login_UnserializeItems(SQL_FetchString(row, shelf.result, "items"));
+        std::string original_items = SQL_FetchString(row, shelf.result, "items");
+        auto items = Login_UnserializeItems(original_items);
 
         bool updated = false;
         for (auto& item : items.Items) {
@@ -384,8 +393,8 @@ bool MigrateRelics(bool dry_run) {
                 if (rewrite_old_ids.count(item.Id)) {
                     Printf(LOG_Warning, "[relic] Found a non-relic item with a relic ID on the shelf for login ID %d, server ID %d, cabinet %d. Rewriting item ID %u -> %u.\n", login_id, server_id, cabinet, item.Id, rewrite_old_ids[item.Id]);
                     item.Id = rewrite_old_ids[item.Id];
+                    updated = true;
                 }
-                updated = true;
                 continue;
             }
 
@@ -429,7 +438,9 @@ bool MigrateRelics(bool dry_run) {
             continue;
         }
 
-        SimpleSQL update_shelf(Format("UPDATE shelf SET items = '%s' WHERE login_id = %d AND server_id = %d AND cabinet = %d;", SQL_Escape(Login_SerializeItems(items)).c_str(), login_id, server_id, cabinet));
+        std::string serialized_items = Login_SerializeItems(items);
+        Printf(LOG_Warning, "[relic] Updating shelf for login ID %d, server ID %d, cabinet %d: '%s' -> '%s'\n", login_id, server_id, cabinet, original_items.c_str(), serialized_items.c_str());
+        SimpleSQL update_shelf(Format("UPDATE shelf SET items = '%s' WHERE login_id = %d AND server_id = %d AND cabinet = %d;", SQL_Escape(serialized_items).c_str(), login_id, server_id, cabinet));
         if (!update_shelf) {
             Printf(LOG_Error, "[relic] Failed to update shelved items for login ID %d, server ID %d, cabinet %d: %s\n", login_id, server_id, cabinet, SQL_Error().c_str());
             continue;
